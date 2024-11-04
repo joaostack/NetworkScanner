@@ -1,2 +1,2 @@
 # NetworkScanner
-ARP based network host scanner
+ARP Broadcast based network host scanner
