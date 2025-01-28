@@ -2,8 +2,10 @@
 using Colorify.UI;
 using PacketDotNet;
 using SharpPcap;
+using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Threading.Tasks;
 using ToolBox.Platform;
 
 namespace NetworkScanner
@@ -18,7 +20,7 @@ __________      .__                    _________
  |____|   \____/|__/____  >____/|___|  /\______  (____  /   __/ 
                         \/           \/        \/     \/|__|";
         public static Format _colorify { get; set; }
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             switch (OS.GetCurrent())
             {
@@ -33,6 +35,13 @@ __________      .__                    _________
 
             _colorify.WriteLine(ASCIIART, Colors.txtSuccess);
 
+            // Check if mac-vendor.txt exists
+            if (!File.Exists("mac-vendor.txt"))
+            {
+                await DownloadMacDatabase();
+            }
+
+            // Interfaces menu
             var devices = CaptureDeviceList.Instance;
             if (devices.Count < 1)
             {
@@ -61,37 +70,40 @@ __________      .__                    _________
             Console.WriteLine("Using: {0}", device.Name);
             device.Open(DeviceModes.Promiscuous);
 
+            // Scan network devices
             var targets = ScanNetwork(device);
             foreach (var target in targets)
             {
                 Console.WriteLine($"IP: {target.Item1} | MAC: {target.Item2}");
             }
 
-
             _colorify.ResetColor();
         }
 
+        // scan network
         static List<Tuple<string, PhysicalAddress>> ScanNetwork(ILiveDevice device)
         {
             List<Tuple<string, PhysicalAddress>> devices = new List<Tuple<string, PhysicalAddress>>();
-            string localIP = "192.168.0.0"; // NETWORK HERE!!!
+            string localIP = "10.0.0.0"; // NETWORK HERE!!!
             string baseIP = localIP.Substring(0, localIP.LastIndexOf('.') + 1);
+
+            _colorify.WriteLine($"Base IP: {baseIP}", Colors.txtInfo);
+
             var attackerMac = device.MacAddress;
             var broadcastMac = PhysicalAddress.Parse("FF-FF-FF-FF-FF-FF");
 
+            _colorify.WriteLine($"Broadcast: {broadcastMac}", Colors.txtInfo);
             _colorify.WriteLine("Scanning the network, please wait...", Colors.txtInfo);
 
             device.OnPacketArrival += Device_OnPacketArrival;
             device.StartCapture();
 
+            var stopwatch = new Stopwatch();
             for (int i = 1; i < 255; i++)
             {
-                string targetIpString = baseIP + i;
+                var targetIpString = baseIP + i;
                 var targetIp = IPAddress.Parse(targetIpString);
                 var ethernetPacket = new EthernetPacket(attackerMac, broadcastMac, EthernetType.Arp);
-
-                //_colorify.WriteLine($"{targetIp}", Colors.txtInfo);
-
                 var arpPacket = new ArpPacket(
                     ArpOperation.Request,
                     broadcastMac,
@@ -103,31 +115,76 @@ __________      .__                    _________
                 ethernetPacket.PayloadPacket = arpPacket;
                 device.SendPacket(ethernetPacket);
 
-                Thread.Sleep(300);
+                // Wait for device to respond
+                stopwatch.Restart();
+                while (stopwatch.ElapsedMilliseconds < 300)
+                {
+                    // Wait
+                }
             }
+            stopwatch.Stop();
 
             return devices;
         }
 
+        // Sniff ARP packets
         static HashSet<string> seenPackets = new HashSet<string>();
         static void Device_OnPacketArrival(object s, PacketCapture e)
         {
             var packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data);
             var arpPacket = packet.Extract<ArpPacket>();
-            if ( arpPacket != null )
+            if (arpPacket != null)
             {
-                string sourceIp = arpPacket.SenderProtocolAddress.ToString();
-                string sourceMac = arpPacket.SenderHardwareAddress.ToString();
+                var sourceIp = arpPacket.SenderProtocolAddress.ToString();
+                var sourceMac = arpPacket.SenderHardwareAddress.ToString();
+                var formatedSourceMac = FormatMac(sourceMac);
                 var data = arpPacket.Operation;
-                string key = $"{sourceIp} -> {sourceMac}";
+                var key = $"{sourceIp} -> {sourceMac}";
+                var vendor = GetVendor(sourceMac);
 
                 if (!seenPackets.Contains(key))
                 {
                     seenPackets.Add(key);
-                    _colorify.WriteLine($"[{data}] Received ARP Packet: {sourceIp} -> {sourceMac}", Colors.txtSuccess);
+                    _colorify.WriteLine($"[{data}] Received ARP Packet: {sourceIp} -> {formatedSourceMac} : {vendor}", Colors.txtSuccess);
                 }
             }
         }
 
+        // Download Mac Database
+        static async Task DownloadMacDatabase()
+        {
+            var client = new HttpClient();
+            Console.WriteLine("Downloading MAC database...");
+            var response = await client.GetAsync("https://gist.githubusercontent.com/aallan/b4bb86db86079509e6159810ae9bd3e4/raw/846ae1b646ab0f4d646af9115e47365f4118e5f6/mac-vendor.txt");
+            var content = await response.Content.ReadAsStringAsync();
+
+            using (StreamWriter outputFile = new StreamWriter("mac-vendor.txt"))
+            {
+                outputFile.Write(content);
+            }
+        }
+
+        static string GetVendor(string mac)
+        {
+            var lines = File.ReadAllLines("mac-vendor.txt");
+            foreach (var line in lines)
+            {
+                var split = line.Split('\t');
+                var fileMac = split[0];
+                var vendor = split[1];
+
+                if (mac.StartsWith(fileMac))
+                {
+                    return vendor;
+                }
+            }
+            return "Unknown";
+        }
+
+        static string FormatMac(string mac)
+        {
+            return string.Join(":", System.Linq.Enumerable.Range(0, mac.Length / 2)
+                                .Select(i => mac.Substring(i * 2, 2)));
+        }
     }
 }
