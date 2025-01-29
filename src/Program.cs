@@ -45,7 +45,7 @@ __________      .__                    _________
             var devices = CaptureDeviceList.Instance;
             if (devices.Count < 1)
             {
-                Console.WriteLine("No iface found!");
+                _colorify.WriteLine("No interface found!", Colors.txtDanger);
                 return;
             }
 
@@ -53,7 +53,7 @@ __________      .__                    _________
             for (int i = 0; i < devices.Count; i++)
             {
                 var dev = devices[i];
-                _colorify.WriteLine($"{i}: Name: {dev.Name} | Desc: {dev.Description} | Mac: {dev.MacAddress}", Colors.txtPrimary);
+                _colorify.WriteLine($"{i}: Name: {dev.Name} | Desc: {dev.Description} | Mac: {dev.MacAddress}", Colors.txtMuted);
             }
             Console.WriteLine(new string('=', 50) + "\n");
 
@@ -84,7 +84,11 @@ __________      .__                    _________
         static List<Tuple<string, PhysicalAddress>> ScanNetwork(ILiveDevice device)
         {
             List<Tuple<string, PhysicalAddress>> devices = new List<Tuple<string, PhysicalAddress>>();
-            string localIP = "10.0.0.0"; // NETWORK HERE!!!
+
+            _colorify.Write("Enter network IP (Ex: 192.168.0.0): ", Colors.txtWarning);
+            var network = Console.ReadLine();
+
+            string localIP = network; // NETWORK HERE!!!
             string baseIP = localIP.Substring(0, localIP.LastIndexOf('.') + 1);
 
             _colorify.WriteLine($"Base IP: {baseIP}", Colors.txtInfo);
@@ -92,7 +96,7 @@ __________      .__                    _________
             var attackerMac = device.MacAddress;
             var broadcastMac = PhysicalAddress.Parse("FF-FF-FF-FF-FF-FF");
 
-            _colorify.WriteLine($"Broadcast: {broadcastMac}", Colors.txtInfo);
+            _colorify.WriteLine($"Broadcast: {FormatMac(broadcastMac.ToString())}", Colors.txtInfo);
             _colorify.WriteLine("Scanning the network, please wait...", Colors.txtInfo);
 
             device.OnPacketArrival += Device_OnPacketArrival;
@@ -158,12 +162,14 @@ __________      .__                    _________
             var response = await client.GetAsync("https://gist.githubusercontent.com/aallan/b4bb86db86079509e6159810ae9bd3e4/raw/846ae1b646ab0f4d646af9115e47365f4118e5f6/mac-vendor.txt");
             var content = await response.Content.ReadAsStringAsync();
 
+            // Save to file
             using (StreamWriter outputFile = new StreamWriter("mac-vendor.txt"))
             {
                 outputFile.Write(content);
             }
         }
 
+        // Get vendor from MAC address
         static string GetVendor(string mac)
         {
             var lines = File.ReadAllLines("mac-vendor.txt");
@@ -181,6 +187,7 @@ __________      .__                    _________
             return "Unknown";
         }
 
+        // Format MAC address to human readable format
         static string FormatMac(string mac)
         {
             return string.Join(":", System.Linq.Enumerable.Range(0, mac.Length / 2)
