@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="C:\Users\cozmo\.nuget\packages\dein.toolbox\1.11.0\contentFiles\any\any\cmd.bat" />
+    <None Remove="C:\Users\cozmo\.nuget\packages\dein.toolbox\1.11.0\contentFiles\any\any\cmd.sh" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="dein.Colorify" Version="2.9.0" />
+    <PackageReference Include="dein.ToolBox" Version="1.11.0" />
+    <PackageReference Include="SharpPcap" Version="6.3.0" />
+  </ItemGroup>
+
+</Project>
