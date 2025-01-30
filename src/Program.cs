@@ -1,10 +1,14 @@
 ﻿using Colorify;
 using Colorify.UI;
+using CsvHelper;
+using CsvHelper.Configuration.Attributes;
 using PacketDotNet;
 using SharpPcap;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using ToolBox.Platform;
 
@@ -34,12 +38,6 @@ __________      .__                    _________
             }
 
             _colorify.WriteLine(ASCIIART, Colors.txtSuccess);
-
-            // Check if mac-vendor.txt exists
-            if (!File.Exists("mac-vendor.txt"))
-            {
-                await DownloadMacDatabase();
-            }
 
             // Interfaces menu
             var devices = CaptureDeviceList.Instance;
@@ -144,54 +142,56 @@ __________      .__                    _________
                 var formatedSourceMac = FormatMac(sourceMac);
                 var data = arpPacket.Operation;
                 var key = $"{sourceIp} -> {sourceMac}";
-                var vendor = GetVendor(sourceMac);
+                var vendor = GetVendor(FormatMac(sourceMac));
 
                 if (!seenPackets.Contains(key))
                 {
                     seenPackets.Add(key);
-                    _colorify.WriteLine($"[{data}] Received ARP Packet: {sourceIp} -> {formatedSourceMac} : {vendor}", Colors.txtSuccess);
+                    _colorify.WriteLine($"Device found: {sourceIp} -> {formatedSourceMac} : {vendor}", Colors.txtSuccess);
                 }
-            }
-        }
-
-        // Download Mac Database
-        static async Task DownloadMacDatabase()
-        {
-            var client = new HttpClient();
-            Console.WriteLine("Downloading MAC database...");
-            var response = await client.GetAsync("https://gist.githubusercontent.com/aallan/b4bb86db86079509e6159810ae9bd3e4/raw/846ae1b646ab0f4d646af9115e47365f4118e5f6/mac-vendor.txt");
-            var content = await response.Content.ReadAsStringAsync();
-
-            // Save to file
-            using (StreamWriter outputFile = new StreamWriter("mac-vendor.txt"))
-            {
-                outputFile.Write(content);
             }
         }
 
         // Get vendor from MAC address
         static string GetVendor(string mac)
         {
-            var lines = File.ReadAllLines("mac-vendor.txt");
-            foreach (var line in lines)
+            var macThree = GetMacThree(mac);
+            using (var reader = new StreamReader("mac-vendors-export.csv"))
             {
-                var split = line.Split('\t');
-                var fileMac = split[0];
-                var vendor = split[1];
-
-                if (mac.StartsWith(fileMac))
+                using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
                 {
-                    return vendor;
+                    var records = csv.GetRecords<MacModel>().ToList();
+                    var vendor = records.FirstOrDefault(record => record.MacPrefix.Equals(macThree, StringComparison.OrdinalIgnoreCase))?.VendorName;
+                    return vendor ?? "Unknown";
                 }
             }
-            return "Unknown";
+        }
+
+        static string GetMacThree(string mac)
+        {
+            var part = mac.Substring(0, 8);
+            return part;
         }
 
         // Format MAC address to human readable format
         static string FormatMac(string mac)
         {
-            return string.Join(":", System.Linq.Enumerable.Range(0, mac.Length / 2)
+            return string.Join(":", Enumerable.Range(0, mac.Length / 2)
                                 .Select(i => mac.Substring(i * 2, 2)));
+        }
+
+        public class MacModel
+        {
+            [Index(0)]
+            public string MacPrefix { get; set; }
+            [Index(1)]
+            public string VendorName { get; set; }
+            [Index(2)]
+            public string Private { get; set; }
+            [Index(3)]
+            public string BlockType { get; set; }
+            [Index(4)]
+            public string LastUpdate { get; set; }
         }
     }
 }
