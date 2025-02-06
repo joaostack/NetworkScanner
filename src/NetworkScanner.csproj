@@ -8,11 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="C:\Users\cozmo\.nuget\packages\dein.toolbox\1.11.0\contentFiles\any\any\cmd.bat" />
-    <None Remove="C:\Users\cozmo\.nuget\packages\dein.toolbox\1.11.0\contentFiles\any\any\cmd.sh" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="CsvHelper" Version="33.0.1" />
     <PackageReference Include="dein.Colorify" Version="2.9.0" />
     <PackageReference Include="dein.ToolBox" Version="1.11.0" />
