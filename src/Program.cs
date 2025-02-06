@@ -22,9 +22,10 @@ __________      .__                    _________
  |     ___/  _ \|  |/  ___/  _ \ /    \/    \  \/\__  \ \____ \ 
  |    |  (  <_> )  |\___ (  <_> )   |  \     \____/ __ \|  |_> >
  |____|   \____/|__/____  >____/|___|  /\______  (____  /   __/ 
-                        \/           \/        \/     \/|__|";
+                        \/           \/        \/     \/|__|
+By github.com/joaostack";
         public static Format _colorify { get; set; }
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
             switch (OS.GetCurrent())
             {
@@ -36,6 +37,8 @@ __________      .__                    _________
                     _colorify = new Format(Theme.Light);
                     break;
             }
+
+            Console.Clear();
 
             _colorify.WriteLine(ASCIIART, Colors.txtSuccess);
 
@@ -51,7 +54,15 @@ __________      .__                    _________
             for (int i = 0; i < devices.Count; i++)
             {
                 var dev = devices[i];
-                _colorify.WriteLine($"{i}: Name: {dev.Name} | Desc: {dev.Description} | Mac: {dev.MacAddress}", Colors.txtMuted);
+                if (dev.MacAddress != null)
+                {
+                    var formatedMac = FormatMac(dev.MacAddress.ToString());
+                    _colorify.WriteLine($"{i}: {dev.Description} | Mac: {formatedMac}", Colors.txtMuted);
+                }
+                else
+                {
+                    _colorify.WriteLine($"{i}: {dev.Description} | Mac: {dev.MacAddress}", Colors.txtMuted);
+                }
             }
             Console.WriteLine(new string('=', 50) + "\n");
 
@@ -65,7 +76,7 @@ __________      .__                    _________
             }
 
             var device = devices[selectedIndex];
-            Console.WriteLine("Using: {0}", device.Name);
+            Console.WriteLine("Using: {0}", device.Description);
             device.Open(DeviceModes.Promiscuous);
 
             // Scan network devices
@@ -86,7 +97,7 @@ __________      .__                    _________
             _colorify.Write("Enter network IP (Ex: 192.168.0.0): ", Colors.txtWarning);
             var network = Console.ReadLine();
 
-            string localIP = network; // NETWORK HERE!!!
+            string localIP = network;
             string baseIP = localIP.Substring(0, localIP.LastIndexOf('.') + 1);
 
             _colorify.WriteLine($"Base IP: {baseIP}", Colors.txtInfo);
@@ -167,6 +178,7 @@ __________      .__                    _________
             }
         }
 
+        // Get the first mac bytes
         static string GetMacThree(string mac)
         {
             var part = mac.Substring(0, 8);
@@ -176,8 +188,13 @@ __________      .__                    _________
         // Format MAC address to human readable format
         static string FormatMac(string mac)
         {
-            return string.Join(":", Enumerable.Range(0, mac.Length / 2)
-                                .Select(i => mac.Substring(i * 2, 2)));
+            if (!string.IsNullOrEmpty(mac))
+            {
+                return string.Join(":", Enumerable.Range(0, mac.Length / 2)
+                                    .Select(i => mac.Substring(i * 2, 2)));
+            }
+
+            return mac;
         }
 
         public class MacModel
